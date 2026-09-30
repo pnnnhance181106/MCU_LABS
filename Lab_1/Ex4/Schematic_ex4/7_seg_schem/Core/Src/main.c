@@ -118,13 +118,13 @@ int main(void)
   int count = 0;
   while (1)
   {
-    /* USER CODE END WHILE */
 	  display7Seg(count);
 	  count++;
 	  if (count >= 10) count = 0;
 	  HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
+    /* USER CODE END WHILE */
   /* USER CODE END 3 */
 }
 
