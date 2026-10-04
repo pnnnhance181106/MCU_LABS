@@ -173,13 +173,12 @@ void update7SEG(int index)
 /* Quét hiển thị 1 cột của ma trận LED 8x8 */
 void updateLEDMatrix(int index)
 {
-    // Bước 1: TẮT tất cả 8 cột (ENM0..ENM7 = 1 để ULN2803 kéo ngõ ra về 0V)
+    // TẮT tất cả 8 cột (ENM0..ENM7 = 1 để ULN2803 kéo ngõ ra về 0V)
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_10 | GPIO_PIN_11 |
                              GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_SET);
 
-    // Bước 2: Xuất dữ liệu bit của cột ra 8 Hàng (ROW0..ROW7 nối PB8..PB15)
-    // Bit 1 -> SÁNG -> Chân hàng xuất mức 0 (RESET để hút dòng về GND)
-    // Bit 0 -> TẮT   -> Chân hàng xuất mức 1 (SET)
+    //  Xuất dữ liệu bit của cột ra 8 Hàng (ROW0..ROW7 nối PB8..PB15)
+
     uint8_t row_val = matrix_buffer[index];
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8,  (row_val & 0x01) ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9,  (row_val & 0x02) ? GPIO_PIN_RESET : GPIO_PIN_SET);
@@ -190,7 +189,7 @@ void updateLEDMatrix(int index)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, (row_val & 0x40) ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, (row_val & 0x80) ? GPIO_PIN_RESET : GPIO_PIN_SET);
 
-    // Bước 3: BẬT duy nhất Cột tương ứng (ENM xuất mức 0 để ngõ ra ULN2803 lên 3.3V)
+    //  BẬT duy nhất Cột tương ứng (ENM xuất mức 0 để ngõ ra ULN2803 lên 3.3V)
     switch (index) {
         case 0: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2,  GPIO_PIN_RESET); break; // ENM0
         case 1: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3,  GPIO_PIN_RESET); break; // ENM1
@@ -311,7 +310,7 @@ int main(void)
   setTimer1(1000); // 1000ms cho đồng hồ số & dấu hai chấm DOT
   setTimer2(250);  // 250ms cho việc quét lần lượt 4 LED 7 đoạn
   setTimer3(10);   // 10ms cho quét 8 cột LED Ma trận
-  setTimer4(500);  // 500ms cho việc dịch chuyển chữ 'A' sang trái (Ex 10)
+  setTimer4(500);  // 500ms cho việc dịch chuyển chữ 'A' sang trái
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -321,7 +320,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* Tác vụ 1: Quét ma trận LED 8x8 hiển thị (chu kỳ 10ms) */
+    /*  Quét ma trận LED 8x8 hiển thị (chu kỳ 10ms) */
     if (timer3_flag == 1) {
         setTimer3(10);
         updateLEDMatrix(index_led_matrix);
@@ -331,13 +330,13 @@ int main(void)
         }
     }
 
-    /* Tác vụ 2: Dịch chuyển dữ liệu chữ 'A' sang trái (chu kỳ 500ms - Exercise 10) */
+    /*  Dịch chuyển dữ liệu chữ 'A' sang trái (chu kỳ 500ms - Exercise 10) */
     if (timer4_flag == 1) {
         setTimer4(500);
         shift_matrix_left();
     }
 
-    /* Tác vụ 3: Quét 4 LED 7 đoạn (chu kỳ 250ms) */
+    /* Quét 4 LED 7 đoạn (chu kỳ 250ms) */
     if (timer2_flag == 1) {
         setTimer2(250);
         update7SEG(index_led);
@@ -347,7 +346,7 @@ int main(void)
         }
     }
 
-    /* Tác vụ 4: Đếm thời gian số & đảo chân DOT (chu kỳ 1000ms) */
+    /*  Đếm thời gian số & đảo chân DOT (chu kỳ 1000ms) */
     if (timer1_flag == 1) {
         setTimer1(1000);
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_4); // Đảo trạng thái đèn DOT (D2, D3)
