@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body - Exercise 7: Software Timer for Digital Clock
+  * @brief          : Lab 2 - Exercise 8: Move All Display & Clock Logic to Main
   ******************************************************************************
   * @attention
   *
@@ -51,13 +51,15 @@ int hour = 15;
 int minute = 8;
 int second = 50;
 
-/* Biến đếm quét LED 7 đoạn trong ngắt (chu kỳ 250ms/LED -> 1Hz toàn chu kỳ) */
-int led_counter = 25;
 int index_led = 0;
 
-/* Khai báo Software Timer 1 (chu kỳ 1000ms đếm giây cho đồng hồ) */
+/* Khai báo 2 Software Timer (sử dụng volatile để tránh lỗi compiler optimization) */
 volatile int timer1_counter = 0;
-volatile int timer1_flag = 0;
+volatile int timer1_flag = 0; // Timer 1: 1000ms cho đồng hồ số, đèn DOT (PA4) và LED D1 (PA5)
+
+volatile int timer2_counter = 0;
+volatile int timer2_flag = 0; // Timer 2: 250ms cho việc quét lần lượt 4 LED 7 đoạn
+
 int TIMER_CYCLE = 10; // Chu kỳ ngắt phần cứng Timer 2 là 10ms
 /* USER CODE END PV */
 
@@ -70,6 +72,7 @@ void display7SEG(int num);
 void updateClockBuffer(void);
 void update7SEG(int index);
 void setTimer1(int duration);
+void setTimer2(int duration);
 void timer_run(void);
 /* USER CODE END PFP */
 
@@ -112,45 +115,58 @@ void updateClockBuffer(void)
 
 void update7SEG(int index)
 {
-
+    // Tắt toàn bộ 4 transistor PNP bằng mức 1 trước khi quét số mới
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9, GPIO_PIN_SET);
 
     switch (index) {
         case 0:
             display7SEG(led_buffer[0]);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET); // Bật EN0
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET); // Kích dẫn Q1
             break;
         case 1:
             display7SEG(led_buffer[1]);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); // Bật EN1
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET); // Kích dẫn Q2
             break;
         case 2:
             display7SEG(led_buffer[2]);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET); // Bật EN2
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET); // Kích dẫn Q3
             break;
         case 3:
             display7SEG(led_buffer[3]);
-            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET); // Bật EN3
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET); // Kích dẫn Q4
             break;
         default:
             break;
     }
 }
 
-/* Cài đặt thời gian cho Software Timer 1 */
+/* Các hàm cài đặt thời gian cho Software Timer */
 void setTimer1(int duration)
 {
     timer1_counter = duration / TIMER_CYCLE;
     timer1_flag = 0;
 }
 
-/* Hàm giảm biến đếm Software Timer (chạy trong ngắt Timer 2) */
+void setTimer2(int duration)
+{
+    timer2_counter = duration / TIMER_CYCLE;
+    timer2_flag = 0;
+}
+
+/* Hàm giảm biến đếm Software Timer (chạy trong ngắt phần cứng 10ms) */
 void timer_run(void)
 {
     if (timer1_counter > 0) {
         timer1_counter--;
         if (timer1_counter == 0) {
             timer1_flag = 1;
+        }
+    }
+
+    if (timer2_counter > 0) {
+        timer2_counter--;
+        if (timer2_counter == 0) {
+            timer2_flag = 1;
         }
     }
 }
@@ -192,8 +208,9 @@ int main(void)
   /* Bật ngắt phần cứng Timer 2 */
   HAL_TIM_Base_Start_IT(&htim2);
 
-  /* Cài đặt Software Timer 1 với chu kỳ 1000ms (1 giây) */
-  setTimer1(1000);
+  /* Cài đặt 2 Software Timer ban đầu */
+  setTimer1(1000); // 1000ms cho đồng hồ số & nhấp nháy đèn
+  setTimer2(250);  // 250ms cho việc quét LED 7 đoạn
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -203,14 +220,22 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* Khi Software Timer 1 hết 1000ms (1s) */
+    /* Tác vụ 1: Quét 4 LED 7 đoạn ngoài main (chu kỳ 250ms) */
+    if (timer2_flag == 1) {
+        setTimer2(250); // Nạp lại chu kỳ quét kế tiếp
+        update7SEG(index_led);
+        index_led++;
+        if (index_led >= MAX_LED) {
+            index_led = 0;
+        }
+    }
+
+    /* Tác vụ 2: Đếm thời gian số & đảo chân DOT, LED D1 ngoài main (chu kỳ 1000ms) */
     if (timer1_flag == 1) {
-        setTimer1(1000); // Cài đặt lại 1000ms cho chu kỳ kế tiếp
+        setTimer1(1000); // Nạp lại chu kỳ 1s
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_4); // Đảo trạng thái đèn hai chấm DOT
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Đảo trạng thái đèn LED D1 (hệ thống)
 
-        // 1. Chuyển logic chớp tắt đèn DOT (PA4) ra ngoài main
-        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_4);
-
-        // 2. Logic cập nhật thời gian số
         second++;
         if (second >= 60) {
             second = 0;
@@ -223,8 +248,6 @@ int main(void)
                 }
             }
         }
-
-        // 3. Cập nhật mảng dữ liệu led_buffer
         updateClockBuffer();
     }
   }
@@ -325,11 +348,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
-  /* Mức khởi tạo: tắt transistor (PA6..PA9 = 1), tắt đèn DOT (PA4 = 1) */
+  /* Khóa toàn bộ transistor (PA6..PA9 = 1), tắt đèn DOT (PA4 = 1), tắt LED D1 (PA5 = 0) */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9, GPIO_PIN_SET);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 
-  /* PB0..PB6 ở mức 1 để tắt toàn bộ các thanh LED 7 đoạn */
+  /* PB0..PB6 ở mức 1 để tắt toàn bộ các thanh LED 7 đoạn lúc khởi động */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
                           | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6, GPIO_PIN_SET);
 
@@ -352,23 +375,12 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* Tiêu chí cốt lõi Exercise 8: ISR chỉ gọi duy nhất timer_run() */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM2)
   {
-
     timer_run();
-    led_counter--;
-    if (led_counter <= 0)
-    {
-      led_counter = 25;
-      update7SEG(index_led);
-      index_led++;
-      if (index_led >= MAX_LED)
-      {
-        index_led = 0;
-      }
-    }
   }
 }
 /* USER CODE END 4 */
@@ -388,13 +400,6 @@ void Error_Handler(void)
 }
 
 #ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
