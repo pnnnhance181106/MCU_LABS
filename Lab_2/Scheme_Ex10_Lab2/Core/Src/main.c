@@ -43,7 +43,7 @@
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
-/* ==================== PHẦN 1: CỤM LED 7 ĐOẠN & ĐỒNG HỒ ==================== */
+/*  LED 7 ĐOẠN & ĐỒNG HỒ */
 const int MAX_LED = 4;
 int led_buffer[4] = {0, 0, 0, 0};
 
@@ -53,11 +53,11 @@ int second = 50;
 
 int index_led = 0;
 
-/* ==================== PHẦN 2: CỤM MA TRẬN LED 8x8 ==================== */
+/*  MA TRẬN LED 8x8  */
 const int MAX_LED_MATRIX = 8;
 int index_led_matrix = 0;
 
-/* Mảng dữ liệu hiển thị chữ 'A' ban đầu: bit 1 là SÁNG, bit 0 là TẮT */
+/*  bit 1 là SÁNG, bit 0 là TẮT */
 uint8_t matrix_buffer[8] = {
     0b00000000, // Cột 0: Tắt
     0b01111110, // Cột 1: Thân trái
@@ -69,24 +69,24 @@ uint8_t matrix_buffer[8] = {
     0b00000000  // Cột 7: Tắt
 };
 
-/* ==================== PHẦN 3: HỆ THỐNG SOFTWARE TIMERS ==================== */
-// Timer 1: 1000ms cho đồng hồ số & đảo đèn DOT (PA4), LED D1 (PA5)
+/*  HỆ THỐNG SOFTWARE TIMERS */
+// Timer 1: 1000ms DOT (PA4), LED D1 (PA5)
 volatile int timer1_counter = 0;
 volatile int timer1_flag = 0;
 
-// Timer 2: 250ms cho việc quét lần lượt 4 LED 7 đoạn
+// Timer 2: 250ms  quét lần lượt 4 LED 7 đoạn
 volatile int timer2_counter = 0;
 volatile int timer2_flag = 0;
 
-// Timer 3: 10ms cho việc quét liên tục 8 cột LED Ma trận
+// Timer 3: 10ms quét 8 cột LED Ma trận
 volatile int timer3_counter = 0;
 volatile int timer3_flag = 0;
 
-// Timer 4: 500ms cho việc dịch chuyển chữ 'A' sang trái (Exercise 10)
+// Timer 4: 500ms cho việc dịch chuyển chữ 'A' sang trái
 volatile int timer4_counter = 0;
 volatile int timer4_flag = 0;
 
-int TIMER_CYCLE = 10; // Chu kỳ ngắt phần cứng Timer 2 là 10ms
+int TIMER_CYCLE = 10; // Chu kỳ ngắt phần cứng Timer 10ms
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -145,7 +145,7 @@ void updateClockBuffer(void)
 
 void update7SEG(int index)
 {
-    // Tắt cả 4 transistor PNP bằng cách xuất mức 1 vào PA6..PA9
+    // Tắt 4 transistor PNP
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9, GPIO_PIN_SET);
 
     switch (index) {
@@ -170,15 +170,15 @@ void update7SEG(int index)
     }
 }
 
-/* Quét hiển thị 1 cột của ma trận LED 8x8 */
+/* Quét 1 cột của ma trận LED 8x8 */
 void updateLEDMatrix(int index)
 {
-    // TẮT tất cả 8 cột (ENM0..ENM7 = 1 để ULN2803 kéo ngõ ra về 0V)
+    // TẮT tất cả 8 cột = 0V - tắt toàn bộ đèn
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_10 | GPIO_PIN_11 |
                              GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_SET);
 
     //  Xuất dữ liệu bit của cột ra 8 Hàng (ROW0..ROW7 nối PB8..PB15)
-
+-
     uint8_t row_val = matrix_buffer[index];
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8,  (row_val & 0x01) ? GPIO_PIN_RESET : GPIO_PIN_SET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9,  (row_val & 0x02) ? GPIO_PIN_RESET : GPIO_PIN_SET);
