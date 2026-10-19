@@ -28,6 +28,7 @@
 #include "input_processing.h"
 #include "mode_display.h"
 #include "traffic_setting.h"
+#include "traffic_light_fsm.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -107,8 +108,11 @@ int main(void)
   while (1)
   {
 	  fsm_for_input_processing(); //ex5
-	  traffic_setting_update(); //ex7
+	  traffic_setting_update(); //ex7 - ex8 - ex9;
 	  update_exercsie6(); //ex6
+	  traffic_light_update(); //ex10
+
+	  //quet led 7 doan
 	  if (isTimerExpired(1)) {
 	      setTimer(1, 50);
 	      scan7SEG();

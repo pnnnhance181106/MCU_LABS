@@ -5,8 +5,6 @@
 #include "traffic_setting.h"
 
 /*Thoi gian mac dinh de test ex6*/
-static int yellowTime = 36;
-static int greenTime = 67;
 
 static int previousMode = -1;
 void update_exercsie6(void) {
@@ -22,10 +20,10 @@ void update_exercsie6(void) {
 			update7SEG_Buffer(2, getTempRedTime());
 			break;
 		case 3:
-			update7SEG_Buffer(3, yellowTime);
+			update7SEG_Buffer(3, getTempYellowTime());
 			break;
 		case 4:
-			update7SEG_Buffer(4, greenTime);
+			update7SEG_Buffer(4, getGreenTime());
 			break;
 		}
 	}
