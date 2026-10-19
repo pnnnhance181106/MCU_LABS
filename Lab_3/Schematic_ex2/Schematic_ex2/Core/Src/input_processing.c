@@ -21,7 +21,7 @@ static enum ButtonState buttonState[3] = {
 };
 
 // Mode mặc định khởi động là Mode 1 (1 -> 4)
-int mode = 1;
+extern int mode = 1;
 
 void fsm_for_input_processing(void) {
     // Xử lý Nút nhấn 1 (Index 0): Chuyển Mode 1 -> 2 -> 3 -> 4 -> 1 (Yêu cầu Ex 5)

@@ -26,6 +26,8 @@
 #include "input_reading.h"
 #include "led_display.h"
 #include "input_processing.h"
+#include "mode_display.h"
+#include "traffic_setting.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -96,13 +98,17 @@ int main(void)
   turnOffAllTrafficLeds();
   update7SEG_Buffer(0, mode);
   setTimer(1, 50); // Khởi động Timer 1 để quét LED 7 đoạn mỗi 50ms
+  setTimer(2, 250);
+  update_exercsie6();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  fsm_for_input_processing();
+	  fsm_for_input_processing(); //ex5
+	  traffic_setting_update(); //ex7
+	  update_exercsie6(); //ex6
 	  if (isTimerExpired(1)) {
 	      setTimer(1, 50);
 	      scan7SEG();
