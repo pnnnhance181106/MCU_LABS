@@ -18,7 +18,7 @@
 #define BUTTON_IS_RELEASED GPIO_PIN_SET
 
 // Bộ đệm lưu kết quả cuối cùng sau khi đã chống rung
-static GPIO_PinState buttonBuffer[NO_OF_BUTTONS] = {
+static volatile GPIO_PinState buttonBuffer[NO_OF_BUTTONS] = {
     BUTTON_IS_RELEASED, BUTTON_IS_RELEASED, BUTTON_IS_RELEASED
 };
 
@@ -31,7 +31,7 @@ static GPIO_PinState debounceButtonBuffer2[NO_OF_BUTTONS] = {
 };
 
 // Cờ báo hiệu nút được nhấn giữ hơn 1 giây
-static uint8_t flagForButtonPress1s[NO_OF_BUTTONS] = {0, 0, 0};
+static volatile uint8_t flagForButtonPress1s[NO_OF_BUTTONS] = {0, 0, 0};
 
 // Bộ đếm thời gian nhấn giữ nút
 static uint16_t counterForButtonPress1s[NO_OF_BUTTONS] = {0, 0, 0};
@@ -80,4 +80,5 @@ unsigned char is_button_pressed_1s(unsigned char index) {
     if (index >= NO_OF_BUTTONS) return 0xff;
     return (flagForButtonPress1s[index] == 1);
 }
+
 

@@ -91,19 +91,20 @@ void traffic_setting_update(void) {
 		tempTime = &tempGreenTime;
 		currTime = &greenTime;
 		break;
+	default:
+		return;
 	}
-
 
 	if (button_2_pressed) {
 		(*tempTime)++;
 		if (*tempTime > 99) {
 			*tempTime = 1;
 		}
-		update7SEG_Buffer(MODE_RED, *tempTime);
+		update7SEG_Buffer(mode, *tempTime);
 	}
 
 	if (button_3_pressed) {
 		*currTime = *tempTime;
-		update7SEG_Buffer(MODE_RED, *currTime);
+		update7SEG_Buffer(mode, *currTime);
 	}
 }

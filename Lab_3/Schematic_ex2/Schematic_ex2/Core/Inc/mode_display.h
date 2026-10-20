@@ -9,5 +9,5 @@
 #define INC_MODE_DISPLAY_H_
 
 //define exercise 6
-void update_exercsie6(void);
+void switch_mode(void);
 #endif /* INC_MODE_DISPLAY_H_ */

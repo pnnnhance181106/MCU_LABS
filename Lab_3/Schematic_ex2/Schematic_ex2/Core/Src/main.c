@@ -100,7 +100,7 @@ int main(void)
   update7SEG_Buffer(0, mode);
   setTimer(1, 50); // Khởi động Timer 1 để quét LED 7 đoạn mỗi 50ms
   setTimer(2, 250);
-  update_exercsie6();
+  switch_mode();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -109,7 +109,7 @@ int main(void)
   {
 	  fsm_for_input_processing(); //ex5
 	  traffic_setting_update(); //ex7 - ex8 - ex9;
-	  update_exercsie6(); //ex6
+	  switch_mode(); //ex6
 	  traffic_light_update(); //ex10
 
 	  //quet led 7 doan

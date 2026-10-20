@@ -7,7 +7,7 @@
 /*Thoi gian mac dinh de test ex6*/
 
 static int previousMode = -1;
-void update_exercsie6(void) {
+void switch_mode(void) {
 	if (previousMode != mode) {
 		previousMode = mode;
 		turnOffAllTrafficLeds();
@@ -23,7 +23,7 @@ void update_exercsie6(void) {
 			update7SEG_Buffer(3, getTempYellowTime());
 			break;
 		case 4:
-			update7SEG_Buffer(4, getGreenTime());
+			update7SEG_Buffer(4, getTempGreenTime());
 			break;
 		}
 	}
