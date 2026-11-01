@@ -19,9 +19,8 @@ typedef struct{
 	void (*pTask)(void);
 	uint32_t Delay;
 	uint32_t Period;
-	uint8_t RunMe;
 	uint32_t TaskID;
-	uint8_t Armed;
+	int16_t Next;
 }sTask;
 
 void SCH_Init(void);
