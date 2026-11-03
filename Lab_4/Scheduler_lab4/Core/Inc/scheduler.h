@@ -13,7 +13,7 @@
 #define SCH_MAX_TASKS 10
 #define SCH_INVALID_TASK_ID UINT32_MAX
 
-//stask
+
 
 typedef struct{
 	void (*pTask)(void);
@@ -21,7 +21,6 @@ typedef struct{
 	uint32_t Period;
 	uint8_t RunMe;
 	uint32_t TaskID;
-	uint8_t Armed;
 }sTask;
 
 void SCH_Init(void);
