@@ -1,159 +1,208 @@
+
 #include "scheduler.h"
+#include "main.h"
 #include <stddef.h>
+#include <stdint.h>
 
 #define SCH_NULL_INDEX (-1)
 
 static int16_t SCH_head = SCH_NULL_INDEX; //task dau tien
 static volatile uint32_t SCH_pendingTicks = 0; //so tick chua duoc dispatcher xu ly
 static sTask SCH_tasks_G[SCH_MAX_TASKS];
+static uint32_t current_task_count = 0;
+static uint32_t next_task_id = 1;
 
-
-void SCH_Update(void) {
-	if (SCH_pendingTicks < UINT32_MAX)
-	SCH_pendingTicks++;
-}
-
-static void SCH_Queue_Insert(int16_t index, uint32_t delay) {
-	int16_t prev = SCH_NULL_INDEX;
-	int16_t cur = SCH_head;
-
-	while (cur != SCH_NULL_INDEX && delay >= SCH_tasks_G[cur].Delay) {
-		//di chuyen toi vi tri co delay be hon delay cua task phia sau
-		delay -= SCH_tasks_G[cur].Delay;
-		prev = cur;
-		cur = SCH_tasks_G[cur].Next;
-	}
-
-	SCH_tasks_G[index].Delay = delay; //luu gia tri index tuong doi moi
-	SCH_tasks_G[index].Next = cur;
-
-	if (cur != SCH_NULL_INDEX) {
-		SCH_tasks_G[cur].Delay -= delay; //dieu chinh delay cua task phia sau
-	}
-	if (prev == SCH_NULL_INDEX) {
-		//task moi co deadline som nhat, tro thanh head
-		SCH_head = index;
-	}
-	else {
-		//task moi duoc noi sau prev
-		SCH_tasks_G[prev].Next = index;
-	}
-}
-static void SCH_Queue_Remove(int16_t index) {
-	//ham xoa 1 task, phai cong delay cua no cho task ke tiep
-	int16_t prev = SCH_NULL_INDEX;
-	int16_t cur = SCH_head;
-
-	while (cur != SCH_NULL_INDEX && cur != index) {
-		prev = cur;
-		cur = SCH_tasks_G[cur].Next;
-	}
-	if (cur == SCH_NULL_INDEX) return;
-
-	int16_t next_idx = SCH_tasks_G[cur].Next;
-	if (next_idx != SCH_NULL_INDEX) {
-		SCH_tasks_G[next_idx].Delay += SCH_tasks_G[cur].Delay;
-	}
-	if (prev == SCH_NULL_INDEX) {
-		SCH_head = next_idx;
-	}
-	else {
-		SCH_tasks_G[prev].Next = next_idx;
-	}
-	SCH_tasks_G[cur].Next = SCH_NULL_INDEX;
-}
-
+/**
+ * @brief khoi tao scheduler
+ */
 void SCH_Init(void) {
-	uint32_t primask = __get_PRIMASK();
-	__disable_irq();
-
-	SCH_head = SCH_NULL_INDEX;
-	SCH_pendingTicks = 0;
-
-	for (uint32_t i = 0; i < SCH_MAX_TASKS; i++) {
-		SCH_tasks_G[i].pTask = NULL;
-		SCH_tasks_G[i].Delay = 0;
-		SCH_tasks_G[i].Period = 0;
-		SCH_tasks_G[i].TaskID = SCH_INVALID_TASK_ID;
-		SCH_tasks_G[i].Next = SCH_NULL_INDEX;
-	}
-	__set_PRIMASK(primask);
+    for (uint32_t i = 0; i < SCH_MAX_TASKS; i++) {
+        SCH_tasks_G[i].pTask = NULL;
+        SCH_tasks_G[i].Delay = 0;
+        SCH_tasks_G[i].Period = 0;
+        SCH_tasks_G[i].RunMe = 0;
+        SCH_tasks_G[i].TaskID = SCH_INVALID_TASK_ID;
+    }
+    current_task_count = 0;
+    next_task_id = 1;
 }
 
-uint32_t SCH_Add_Task(
+/**
+ * @brief thuc thi add task moi va add task dinh ki
+ *
+ */
+static uint32_t SCH_Add_Task_With_ID(
     void (*pFunction)(void),
     uint32_t DELAY,
-    uint32_t PERIOD)
-{
-	if (pFunction == NULL) return SCH_INVALID_TASK_ID;
-
-	uint32_t primask = __get_PRIMASK();
-	__disable_irq();
-
-	uint32_t index = 0;
-	while (index < SCH_MAX_TASKS && SCH_tasks_G[index].pTask != NULL) {
-		index++;
-	}
-	if (index == SCH_MAX_TASKS) {
-		__set_PRIMASK(primask);
-		return SCH_INVALID_TASK_ID;
-	}
-
-    // Tinh tu thoi diem hien tai,
-    // bao gom cac tick chua duoc xu ly
-    if (DELAY > UINT32_MAX - SCH_pendingTicks) {
-        __set_PRIMASK(primask);
+    uint32_t PERIOD,
+    uint32_t taskID
+) {
+    if (current_task_count >= SCH_MAX_TASKS || pFunction == NULL) {
         return SCH_INVALID_TASK_ID;
     }
 
-    uint32_t queueDelay = DELAY + SCH_pendingTicks;
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
 
-    SCH_tasks_G[index].Period = PERIOD;
-    SCH_tasks_G[index].TaskID = index;
-    SCH_tasks_G[index].Next = SCH_NULL_INDEX;
-    SCH_tasks_G[index].pTask = pFunction;
+    uint32_t insert_idx = 0;
+    uint32_t new_delay = DELAY;
 
-    SCH_Queue_Insert((int16_t)index, queueDelay);
+    // duyet tim vi tri chen trong delta queue
+    while (insert_idx < current_task_count &&
+           new_delay >= SCH_tasks_G[insert_idx].Delay) {
+        new_delay -= SCH_tasks_G[insert_idx].Delay;
+        insert_idx++;
+    }
+
+
+    // giảm Delta Delay của task ngay sau nó
+    if (insert_idx < current_task_count) {
+        SCH_tasks_G[insert_idx].Delay -= new_delay;
+    }
+
+    // Dịch các phần tử phía sau sang phải 1 vị trí
+    for (int32_t i = (int32_t)current_task_count;
+         i > (int32_t)insert_idx; i--) {
+        SCH_tasks_G[i] = SCH_tasks_G[i - 1];
+    }
+
+    // Lưu thông tin task mới vào vị trí chèn
+    SCH_tasks_G[insert_idx].pTask = pFunction;
+    SCH_tasks_G[insert_idx].Delay = new_delay;
+    SCH_tasks_G[insert_idx].Period = PERIOD;
+    SCH_tasks_G[insert_idx].RunMe =
+        (insert_idx == 0 && new_delay == 0) ? 1 : 0;
+    SCH_tasks_G[insert_idx].TaskID = taskID;
+
+    current_task_count++;
 
     __set_PRIMASK(primask);
-
-    return index;
+    return taskID;
 }
 
+/**
+ * Dang ky task moi vao
+ */
+uint32_t SCH_Add_Task(
+    void (*pFunction)(void),
+    uint32_t DELAY,
+    uint32_t PERIOD
+) {
+    uint32_t assigned_id = next_task_id++;
 
-void SCH_Dispatch_Tasks(void)
-{
-    while (1)
-    {
-        void (*taskFunction)(void) = NULL;
+    if (next_task_id == SCH_INVALID_TASK_ID) {
+        next_task_id = 1;
+    }
+
+    return SCH_Add_Task_With_ID(
+        pFunction, DELAY, PERIOD, assigned_id
+    );
+}
+
+/**
+ * @brief Cập nhật thời gian trong ngắt Timer (ISR)
+ */
+void SCH_Update(void) {
+    if (current_task_count > 0 &&
+        SCH_tasks_G[0].pTask != NULL) {
+
+        if (SCH_tasks_G[0].Delay > 0) {
+            SCH_tasks_G[0].Delay--;
+        }
+
+        // Khi task ở đầu hàng đợi hết thời gian chờ
+        if (SCH_tasks_G[0].Delay == 0) {
+            SCH_tasks_G[0].RunMe = 1;
+        }
+    }
+}
+
+/**
+ * @brief Xóa tác vụ khỏi hàng đợi theo ID
+ */
+uint8_t SCH_Delete_Task(uint32_t taskID) {
+    if (current_task_count == 0 ||
+        taskID == SCH_INVALID_TASK_ID) {
+        return 0;
+    }
+
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
+    int32_t target_idx = -1;
+
+    for (uint32_t i = 0; i < current_task_count; i++) {
+        if (SCH_tasks_G[i].TaskID == taskID) {
+            target_idx = (int32_t)i;
+            break;
+        }
+    }
+
+    if (target_idx == -1) {
+        __set_PRIMASK(primask);
+        return 0;
+    }
+
+    // Nếu không phải task cuối, cộng dồn Delta Delay
+    // của nó cho task kế tiếp
+    if (target_idx < (int32_t)(current_task_count - 1)) {
+        SCH_tasks_G[target_idx + 1].Delay +=
+            SCH_tasks_G[target_idx].Delay;
+    }
+
+
+    for (uint32_t i = (uint32_t)target_idx;
+         i < current_task_count - 1; i++) {
+        SCH_tasks_G[i] = SCH_tasks_G[i + 1];
+    }
+
+    // giai phong phan tu cuoi cung
+    uint32_t last_idx = current_task_count - 1;
+
+    SCH_tasks_G[last_idx].pTask = NULL;
+    SCH_tasks_G[last_idx].Delay = 0;
+    SCH_tasks_G[last_idx].Period = 0;
+    SCH_tasks_G[last_idx].RunMe = 0;
+    SCH_tasks_G[last_idx].TaskID = SCH_INVALID_TASK_ID;
+
+    current_task_count--;
+
+   // task moi dua len hang doi co delay = 0, gan RunMe
+    if (current_task_count > 0 &&
+        SCH_tasks_G[0].Delay == 0) {
+        SCH_tasks_G[0].RunMe = 1;
+    }
+
+    __set_PRIMASK(primask);
+    return 1;
+}
+
+/**
+ * @brief dieu phoi va thuc thi ca task vu
+ */
+void SCH_Dispatch_Tasks(void) {
+    while (current_task_count > 0 &&
+           SCH_tasks_G[0].RunMe > 0) {
 
         uint32_t primask = __get_PRIMASK();
         __disable_irq();
 
-        // Khong co task trong queue
-        if (SCH_head == SCH_NULL_INDEX)
-        {
-            SCH_pendingTicks = 0;
+        if (current_task_count == 0 ||
+            SCH_tasks_G[0].RunMe == 0) {
             __set_PRIMASK(primask);
-            return;
+            break;
         }
 
-        int16_t index = SCH_head;
+        void (*taskFunction)(void) = SCH_tasks_G[0].pTask;
+        uint32_t period = SCH_tasks_G[0].Period;
+        uint32_t taskID = SCH_tasks_G[0].TaskID;
 
-        // Xu ly cac tick chua duoc tieu thu
-        if (SCH_tasks_G[index].Delay > 0)
-        {
-            if (SCH_pendingTicks < SCH_tasks_G[index].Delay)
-            {
-                SCH_tasks_G[index].Delay -= SCH_pendingTicks;
-                SCH_pendingTicks = 0;
+        // Xóa task vừa tới hạn khỏi đầu hàng đợi
+        SCH_Delete_Task(taskID);
 
-                __set_PRIMASK(primask);
-                return;
-            }
-
-            SCH_pendingTicks -= SCH_tasks_G[index].Delay;
-            SCH_tasks_G[index].Delay = 0;
+     // tac vu tuan hoan, luu thong tin de add lai
+        if (period > 0 && taskFunction != NULL) {
+            SCH_Add_Task_With_ID( taskFunction, period, period, taskID );
         }
 
         // Task dau queue da den han
@@ -181,43 +230,9 @@ void SCH_Dispatch_Tasks(void)
         // Mo ngat truoc khi thuc thi callback
         __set_PRIMASK(primask);
 
-        if (taskFunction != NULL)
-        {
-            taskFunction();
+        // thuc thi callback
+        if (taskFunction != NULL) {
+            (*taskFunction)();
         }
     }
 }
-
-
-uint8_t SCH_Delete_Task(uint32_t taskID)
-{
-    // Kiem tra Task ID co hop le khong
-    if (taskID >= SCH_MAX_TASKS) {
-        return 0;
-    }
-
-    // Kiem tra task co ton tai khong
-    uint32_t primask = __get_PRIMASK();
-    __disable_irq();
-
-    if (SCH_tasks_G[taskID].pTask == NULL) {
-    	__set_PRIMASK(primask);
-        return 0;
-    }
-
-    // Tam khoa ngat de tranh ISR thay doi task
-
-    // Xoa thong tin task
-    SCH_Queue_Remove((int16_t)taskID);
-
-    SCH_tasks_G[taskID].pTask = NULL;
-    SCH_tasks_G[taskID].Delay = 0;
-    SCH_tasks_G[taskID].Period = 0;
-    SCH_tasks_G[taskID].TaskID = SCH_INVALID_TASK_ID;
-    SCH_tasks_G[taskID].Next = SCH_NULL_INDEX;
-    // Khoi phuc trang thai ngat ban dau
-    __set_PRIMASK(primask);
-
-    return 1;
-}
-
