@@ -1,0 +1,25 @@
+#ifndef INC_COMMAND_PARSER_H_
+#define INC_COMMAND_PARSER_H_
+
+#include "main.h"
+
+#define MAX_BUFFER_SIZE 30
+
+//ma dinh danh 2 lenh
+#define CMD_NONE 0
+#define CMD_RST 1
+#define CMD_OK 2
+
+//cac bien giao tiep voi ngat UART va FSM giao tiep
+
+extern uint8_t temp;
+extern uint8_t buffer[MAX_BUFFER_SIZE];
+extern uint8_t index_buffer;
+extern buffer_flag;
+
+extern uint8_t command_flag;
+extern uint8_t command_data;
+
+void command_parser_fsm(void);
+
+#endif /* INC_COMMAND_PARSER_H_ */

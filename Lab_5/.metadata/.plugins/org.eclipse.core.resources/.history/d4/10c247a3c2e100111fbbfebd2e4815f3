@@ -1,0 +1,54 @@
+#include "uart_communication.h"
+#include "command_parser.h"
+#include "stdio.h"
+
+#define IDLE 0
+#define WAIT_OK 1
+
+extern ADC_HandleTypeDef hadc1;
+extern UART_HandleTypeDef huart2;
+
+static uint8_t comm_state = IDLE;
+static uint32_t ADC_value = 0;
+static uint32_t last_send_time = 0;
+static char str_tx[30];
+
+void uart_communication_fsm(void) {
+	switch(comm_state) {
+	case IDLE:
+		if (command_flag == 1 && command_data == CMD_RST) {
+			command_flag = 0;
+			command_data = CMD_NONE;
+
+			//doc cam bien
+			ADC_value = HAL_ADC_GetValue(&hadc1);
+			//dong goi va gui chuoi
+			int len = sprintf(str_tx, "\r\n!ADC=%lu#\r\n", ADC_value);
+			HAL_UART_Transmit(&huart2, (uint8_t*)str_tx, len, 100);
+
+			last_send_time = HAL_GetTick();
+			comm_state = WAIT_OK;
+		}
+		break;
+	case WAIT_OK:
+		if (command_flag == 1) {
+			command_flag = 0;
+			if (command_data == CMD_OK) {
+				command_data = CMD_NONE;
+				comm_state = IDLE;
+			}
+		}
+			else if (HAL_GetTick() - last_send_time >= 3000) {
+				//het han 3 giay chua co !OK# -> gui lai dung gia tri adc cu
+				int len = sprintf(str_tx, "!ADC=%lu#\r\n", ADC_value);
+				HAL_UART_Transmit(&huart2, (uint8_t*)str_tx, len, 100);
+
+				last_send_time = HAL_GetTick();
+			}
+		break;
+	default:
+		comm_state = IDLE;
+		break;
+	}
+
+}

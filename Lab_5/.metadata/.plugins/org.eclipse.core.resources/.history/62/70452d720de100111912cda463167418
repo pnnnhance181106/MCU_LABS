@@ -1,0 +1,49 @@
+#include "command_parser.h"
+#include <string.h>
+
+#define WAIT_START 0
+#define READ_CMD 1
+
+uint8_t temp = 0;
+uint8_t buffer[MAX_BUFFER_SIZE];
+uint8_t index_buffer = 0;
+uint8_t index_buffer_read = 0;
+uint8_t buffer_flag = 0;
+
+uint8_t command_flag = 0;
+uint8_t command_data = CMD_NONE;
+
+static uint8_t parser_state = WAIT_START;
+static char cmd_str[10];
+static uint8_t cmd_index = 0;
+
+void command_parser_fsm(void) {
+	//doc het ky tu trong buffer cho den khi bat kip index
+	while (index_buffer_read != index_buffer) {
+		uint8_t c = buffer[index_buffer_read++];
+		if (index_buffer_read == MAX_BUFFER_SIZE) {
+			index_buffer_read = 0;
+		}
+
+		switch(parser_state) {
+		case WAIT_START:
+			if (c == '!') {
+				cmd_index = 0;
+				//reset de bat dau lenh moi
+			}
+			else if (c == '#') {
+				cmd_str[cmd_index] = '\0'; //ket thuc chuoi voi ky tu '\0'
+				if (strcmp(cmd_str, "RST") == 0) {
+					command_flag = 1;
+					command_data = CMD_RST;
+				}
+				else if (strcmp(cmd_str, "OK") == 0) {
+					command_flag = 1;
+					command_data = CMD_OK;
+				}
+				parser_state = WAIT_START;
+			}
+
+		}
+	}
+}

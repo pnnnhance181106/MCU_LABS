@@ -1,0 +1,2 @@
+uart_communication.c:16:13:send_adc_packet	16	static
+uart_communication.c:35:6:uart_communication_fsm	8	static
