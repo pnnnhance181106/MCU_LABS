@@ -4,9 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SCH_NULL_INDEX (-1)
-
-static int16_t SCH_head = SCH_NULL_INDEX; //task dau tien
 static volatile uint32_t SCH_pendingTicks = 0; //so tick chua duoc dispatcher xu ly
 static sTask SCH_tasks_G[SCH_MAX_TASKS];
 static uint32_t current_task_count = 0;
@@ -180,10 +177,9 @@ uint8_t SCH_Delete_Task(uint32_t taskID) {
 /**
  * @brief dieu phoi va thuc thi ca task vu
  */
-void SCH_Dispatch_Tasks(void) {
-    while (current_task_count > 0 &&
-           SCH_tasks_G[0].RunMe > 0) {
-
+void SCH_Dispatch_Tasks(void)
+{
+    while (1) {
         uint32_t primask = __get_PRIMASK();
         __disable_irq();
 
@@ -197,42 +193,19 @@ void SCH_Dispatch_Tasks(void) {
         uint32_t period = SCH_tasks_G[0].Period;
         uint32_t taskID = SCH_tasks_G[0].TaskID;
 
-        // Xóa task vừa tới hạn khỏi đầu hàng đợi
+        /* Xóa tác vụ đến hạn khỏi đầu hàng đợi. */
         SCH_Delete_Task(taskID);
 
-     // tac vu tuan hoan, luu thong tin de add lai
+        /* Tác vụ tuần hoàn: đưa lại vào hàng đợi với cùng ID. */
         if (period > 0 && taskFunction != NULL) {
-            SCH_Add_Task_With_ID( taskFunction, period, period, taskID );
+            SCH_Add_Task_With_ID(taskFunction, period, period, taskID);
         }
 
-        // Task dau queue da den han
-        taskFunction = SCH_tasks_G[index].pTask;
-        uint32_t period = SCH_tasks_G[index].Period;
-
-        // Lay task ra khoi queue
-        SCH_head = SCH_tasks_G[index].Next;
-        SCH_tasks_G[index].Next = SCH_NULL_INDEX;
-
-        if (period > 0)
-        {
-            // Tai lap lich theo deadline ban dau
-            SCH_Queue_Insert(index, period);
-        }
-        else
-        {
-            // One-shot: giai phong task
-            SCH_tasks_G[index].pTask = NULL;
-            SCH_tasks_G[index].Delay = 0;
-            SCH_tasks_G[index].Period = 0;
-            SCH_tasks_G[index].TaskID = SCH_INVALID_TASK_ID;
-        }
-
-        // Mo ngat truoc khi thuc thi callback
+        /* Callback chạy ngoài vùng tắt ngắt. */
         __set_PRIMASK(primask);
 
-        // thuc thi callback
         if (taskFunction != NULL) {
-            (*taskFunction)();
+            taskFunction();
         }
     }
 }
